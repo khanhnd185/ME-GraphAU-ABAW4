@@ -14,7 +14,7 @@ import yaml
 
 parser = argparse.ArgumentParser(description='PyTorch Training')
 # Datasets
-parser.add_argument('--dataset', default="BP4D", type=str, help="experiment dataset BP4D / DISFA")
+parser.add_argument('--dataset', default="SAW2", type=str, help="experiment dataset BP4D / DISFA / SAW2")
 parser.add_argument('--N-fold', default=3, type=int, help="the ratio of train and validation data")
 parser.add_argument('-f','--fold', default=1, type=int, metavar='N', help='the fold of three folds cross-validation ')
 

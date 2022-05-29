@@ -27,6 +27,12 @@ def get_dataloader(conf):
         valset = DISFA(conf.dataset_path, train=False, fold=conf.fold, transform=image_test(crop_size=conf.crop_size), stage = 1)
         val_loader = DataLoader(valset, batch_size=conf.batch_size, shuffle=False, num_workers=conf.num_workers)
 
+    elif conf.dataset == 'SAW2':
+        trainset = SAW2(conf.dataset_path, train=True, transform=image_train(img_size=conf.img_size), stage = 1)
+        train_loader = DataLoader(trainset, batch_size=conf.batch_size, shuffle=True, num_workers=conf.num_workers)
+        valset = SAW2(conf.dataset_path, train=False, transform=image_test(img_size=conf.img_size), stage = 1)
+        val_loader = DataLoader(valset, batch_size=conf.batch_size, shuffle=False, num_workers=conf.num_workers)
+
     return train_loader, val_loader, len(trainset), len(valset)
 
 
@@ -35,7 +41,7 @@ def train(conf,net,train_loader,optimizer,epoch,criterion):
     losses = AverageMeter()
     net.train()
     train_loader_len = len(train_loader)
-    for batch_idx, (inputs,  targets) in enumerate(tqdm(train_loader)):
+    for batch_idx, (nputs,  _, _, targets) in enumerate(tqdm(train_loader)):
         adjust_learning_rate(optimizer, epoch, conf.epochs, conf.learning_rate, batch_idx, train_loader_len)
         targets = targets.float()
         if torch.cuda.is_available():
@@ -54,7 +60,7 @@ def val(net,val_loader,criterion):
     losses = AverageMeter()
     net.eval()
     statistics_list = None
-    for batch_idx, (inputs, targets) in enumerate(tqdm(val_loader)):
+    for batch_idx, (nputs,  _, _, targets) in enumerate(tqdm(val_loader)):
         with torch.no_grad():
             targets = targets.float()
             if torch.cuda.is_available():
@@ -70,15 +76,10 @@ def val(net,val_loader,criterion):
 
 
 def main(conf):
-    if conf.dataset == 'BP4D':
-        dataset_info = BP4D_infolist
-    elif conf.dataset == 'DISFA':
-        dataset_info = DISFA_infolist
-
     start_epoch = 0
     # data
     train_loader,val_loader,train_data_num,val_data_num = get_dataloader(conf)
-    train_weight = torch.from_numpy(np.loadtxt(os.path.join(conf.dataset_path, 'list', conf.dataset+'_weight_fold'+str(conf.fold)+'.txt')))
+    train_weight = torch.from_numpy(np.loadtxt(os.path.join('train_weight.txt')))
 
     logging.info("Fold: [{} | {}  val_data_num: {} ]".format(conf.fold, conf.N_fold, val_data_num))
 
@@ -110,11 +111,11 @@ def main(conf):
         logging.info(infostr)
         infostr = {'F1-score-list:'}
         logging.info(infostr)
-        infostr = dataset_info(val_f1_score)
+        infostr = SAW2_infolist(val_f1_score)
         logging.info(infostr)
         infostr = {'Acc-list:'}
         logging.info(infostr)
-        infostr = dataset_info(val_acc)
+        infostr = SAW2_infolist(val_acc)
         logging.info(infostr)
 
         # save checkpoints

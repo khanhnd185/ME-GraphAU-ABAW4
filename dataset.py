@@ -13,7 +13,7 @@ def make_dataset(image_list, label_list, au_relation=None):
         images = [(image_list[i].strip(),  label_list[i, :]) for i in range(len_)]
     return images
 
-def make_mtl_dataset(txt_file):
+def make_mtl_dataset(txt_file, au_relation=None):
     with open(txt_file, 'r') as file:
         lines = file.readlines()
         lines = lines[1:]
@@ -33,7 +33,13 @@ def make_mtl_dataset(txt_file):
     Exp_new = [expr[i] for i in ids_list]
     Pth_new = [path[i] for i in ids_list]
 
-    data_list = [(Pth_new[i], [Val_new[i], Ars_new[i]], Exp_new[i], AUs_new[i]) for i in range(len(AUs_new))]
+    if au_relation is not None:
+        Rel_new = [au_relation[i, :] for i in ids_list]
+        data_list = [(Pth_new[i], [Val_new[i], Ars_new[i]], Exp_new[i], AUs_new[i], Rel_new[i]) for i in range(len(AUs_new))]
+    else:
+        Rel_new = [au_relation[i, :] for i in ids_list]
+        data_list = [(Pth_new[i], [Val_new[i], Ars_new[i]], Exp_new[i], AUs_new[i]) for i in range(len(AUs_new))]
+
     return data_list
 
 def pil_loader(path):
@@ -187,18 +193,28 @@ class DISFA(Dataset):
 
 # s-AffWild2 Dataset
 class SAW2(Dataset):
-    def __init__(self, root_path, train=True, transform=None, loader=default_loader):
+    def __init__(self, root_path, train=True, transform=None, stage=1, loader=default_loader):
+        assert stage>0 and stage <=2, 'The stage num must be restricted from 1 to 2'
         self._root_path = root_path
         self._train = train
+        self._stage = stage
         self._transform = transform
         self.loader = loader
         self.img_folder_path = os.path.join(root_path, 'cropped_aligned')
         if self._train:
             annotations_file = os.path.join(root_path, 'training_set_annotations.txt')
+
+            # AU relation
+            if self._stage == 2:
+                au_relation_list_path = os.path.join(root_path, 'training_au_relation_annotations.txt')
+                au_relation_list = np.loadtxt(au_relation_list_path)
+                self.data_list = make_mtl_dataset(annotations_file, au_relation_list)
+            else:
+                self.data_list = make_mtl_dataset(annotations_file)
+
         else:
             annotations_file = os.path.join(root_path, 'validation_set_annotations.txt')
-        
-        self.data_list = make_mtl_dataset(annotations_file)
+            self.data_list = make_mtl_dataset(annotations_file)
 
     def __getitem__(self, index):
         img, va, expr, au = self.data_list[index]
