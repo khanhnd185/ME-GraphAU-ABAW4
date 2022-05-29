@@ -185,8 +185,8 @@ class DISFA(Dataset):
     def __len__(self):
         return len(self.data_list)
 
-
-class AffWild2(Dataset):
+# s-AffWild2 Dataset
+class SAW2(Dataset):
     def __init__(self, root_path, train=True, transform=None, loader=default_loader):
         self._root_path = root_path
         self._train = train
