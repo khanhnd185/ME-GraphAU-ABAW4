@@ -28,9 +28,9 @@ def get_dataloader(conf):
         val_loader = DataLoader(valset, batch_size=conf.batch_size, shuffle=False, num_workers=conf.num_workers)
 
     elif conf.dataset == 'SAW2':
-        trainset = SAW2(conf.dataset_path, train=True, transform=image_train(img_size=conf.img_size), stage = 1)
+        trainset = SAW2(conf.dataset_path, train=True, transform=image_train_saw2(img_size=224), stage = 1)
         train_loader = DataLoader(trainset, batch_size=conf.batch_size, shuffle=True, num_workers=conf.num_workers)
-        valset = SAW2(conf.dataset_path, train=False, transform=image_test(img_size=conf.img_size), stage = 1)
+        valset = SAW2(conf.dataset_path, train=False, transform=image_test_saw2(img_size=224), stage = 1)
         val_loader = DataLoader(valset, batch_size=conf.batch_size, shuffle=False, num_workers=conf.num_workers)
 
     return train_loader, val_loader, len(trainset), len(valset)
@@ -41,7 +41,7 @@ def train(conf,net,train_loader,optimizer,epoch,criterion):
     losses = AverageMeter()
     net.train()
     train_loader_len = len(train_loader)
-    for batch_idx, (nputs,  _, _, targets) in enumerate(tqdm(train_loader)):
+    for batch_idx, (inputs, _, _, targets) in enumerate(tqdm(train_loader)):
         adjust_learning_rate(optimizer, epoch, conf.epochs, conf.learning_rate, batch_idx, train_loader_len)
         targets = targets.float()
         if torch.cuda.is_available():
@@ -60,7 +60,7 @@ def val(net,val_loader,criterion):
     losses = AverageMeter()
     net.eval()
     statistics_list = None
-    for batch_idx, (nputs,  _, _, targets) in enumerate(tqdm(val_loader)):
+    for batch_idx, (inputs, _, _, targets) in enumerate(tqdm(val_loader)):
         with torch.no_grad():
             targets = targets.float()
             if torch.cuda.is_available():

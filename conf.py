@@ -95,6 +95,10 @@ def get_config():
             datasets_cfg = yaml.load(f)
             datasets_cfg = edict(datasets_cfg)
 
+    elif cfg.dataset == 'SAW2':
+        with open('config/SAW2_config.yaml', 'r') as f:
+            datasets_cfg = yaml.safe_load(f)
+            datasets_cfg = edict(datasets_cfg)
     else:
         raise Exception("Unkown Datsets:",cfg.dataset)
 

@@ -37,7 +37,6 @@ def make_mtl_dataset(txt_file, au_relation=None):
         Rel_new = [au_relation[i, :] for i in ids_list]
         data_list = [(Pth_new[i], [Val_new[i], Ars_new[i]], Exp_new[i], AUs_new[i], Rel_new[i]) for i in range(len(AUs_new))]
     else:
-        Rel_new = [au_relation[i, :] for i in ids_list]
         data_list = [(Pth_new[i], [Val_new[i], Ars_new[i]], Exp_new[i], AUs_new[i]) for i in range(len(AUs_new))]
 
     return data_list
@@ -217,7 +216,10 @@ class SAW2(Dataset):
             self.data_list = make_mtl_dataset(annotations_file)
 
     def __getitem__(self, index):
-        img, va, expr, au = self.data_list[index]
+        if self._stage == 2 and self._train:
+            img, va, expr, au, rel = self.data_list[index]
+        else:
+            img, va, expr, au = self.data_list[index]
         img = self.loader(os.path.join(self.img_folder_path, img))
 
         if self._train:
@@ -228,7 +230,10 @@ class SAW2(Dataset):
             if self._transform is not None:
                 img = self._transform(img)
 
-        return img, va, expr, au
+        if self._stage == 2 and self._train:
+            return img, va, expr, au, rel
+        else:
+            return img, va, expr, au
 
     def __len__(self):
         return len(self.data_list)

@@ -191,6 +191,41 @@ class image_train(object):
         img = transform(img)
         return img
 
+class image_train_saw2(object):
+    def __init__(self, img_size=224):
+        self.img_size = img_size
+
+    def __call__(self, img, flip):
+        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                         std=[0.229, 0.224, 0.225])
+        transform = transforms.Compose([
+            transforms.Resize(self.img_size),
+            SetFlip(flip),
+            transforms.ColorJitter(brightness=0.4,
+                                   contrast=0.4,
+                                   saturation=0.4,
+                                   hue=0),
+            transforms.ToTensor(),
+            normalize
+        ])
+        img = transform(img)
+        return img
+
+class image_test_saw2(object):
+    def __init__(self, img_size=224):
+        self.img_size = img_size
+
+    def __call__(self, img):
+        normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                         std=[0.229, 0.224, 0.225])
+        transform = transforms.Compose([
+            transforms.Resize(self.img_size),
+            transforms.ToTensor(),
+            normalize
+        ])
+        img = transform(img)
+        return img
+
 
 class image_test(object):
     def __init__(self, img_size=256, crop_size=224):
