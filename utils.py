@@ -3,6 +3,7 @@ import torch
 from torchvision import transforms
 from PIL import Image
 import torch.nn as nn
+import numpy as np
 
 
 class AverageMeter(object):
@@ -288,3 +289,45 @@ class WeightedAsymmetricLoss(nn.Module):
 
         loss = loss.mean(dim=-1)
         return -loss.mean()
+
+def RegressionLoss(y_hat, y):
+    loss1 =  NegativeCCCLoss(digitize_num=1)(y_hat[:, 0], y[:, 0]) + NegativeCCCLoss(digitize_num=1)(y_hat[:, 1], y[:, 1])
+    return loss1
+
+def CrossEntropyLoss(y_hat, y):
+    return F.cross_entropy(y_hat, y)
+
+class NegativeCCCLoss(nn.Module):
+    def __init__(self, digitize_num=20, range=[-1, 1], weight=None):
+        super(NegativeCCCLoss, self).__init__() 
+        self.digitize_num =  digitize_num
+        self.range = range
+        self.weight = weight
+        if self.digitize_num >1:
+            bins = np.linspace(*self.range, num= self.digitize_num)
+            self.bins = torch.as_tensor(bins, dtype = torch.float32).cuda().view((1, -1))
+    def forward(self, x, y): 
+        # the target y is continuous value (BS, )
+        # the input x is either continuous value (BS, ) or probability output(digitized)
+        y = y.view(-1)
+        if self.digitize_num !=1:
+            x = F.softmax(x, dim=-1)
+            x = (self.bins * x).sum(-1) # expectation
+        x = x.view(-1)
+        if self.weight is None:
+            vx = x - torch.mean(x) 
+            vy = y - torch.mean(y) 
+            rho =  torch.sum(vx * vy) / (torch.sqrt(torch.sum(torch.pow(vx, 2))) * torch.sqrt(torch.sum(torch.pow(vy, 2))) + EPS)
+            x_m = torch.mean(x)
+            y_m = torch.mean(y)
+            x_s = torch.std(x)
+            y_s = torch.std(y)
+            ccc = 2*rho*x_s*y_s/(torch.pow(x_s, 2) + torch.pow(y_s, 2) + torch.pow(x_m - y_m, 2) + EPS)
+        else:
+            rho = weighted_correlation(x, y, self.weight)
+            x_var = weighted_covariance(x, x, self.weight)
+            y_var = weighted_covariance(y, y, self.weight)
+            x_mean = weighted_mean(x, self.weight)
+            y_mean = weighted_mean(y, self.weight)
+            ccc = 2*rho*torch.sqrt(x_var)*torch.sqrt(y_var)/(x_var + y_var + torch.pow(x_mean - y_mean, 2) +EPS)
+        return 1-ccc

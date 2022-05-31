@@ -37,18 +37,18 @@ def get_dataloader(conf):
 
 
 # Train
-def train(conf,net,train_loader,optimizer,epoch,criterion):
+def train(conf,net,train_loader,optimizer,epoch,criteria):
     losses = AverageMeter()
     net.train()
     train_loader_len = len(train_loader)
-    for batch_idx, (inputs, _, _, targets) in enumerate(tqdm(train_loader)):
+    for batch_idx, (inputs, y_va, y_expr, y_au, mask_va, mask_expr, mask_au) in enumerate(tqdm(train_loader)):
         adjust_learning_rate(optimizer, epoch, conf.epochs, conf.learning_rate, batch_idx, train_loader_len)
-        targets = targets.float()
+        y_va, y_expr, y_au, mask_va, mask_expr, mask_au = y_va.float(), y_expr.float(), y_au.float(), mask_va.float(), mask_expr.float(), mask_au.float()
         if torch.cuda.is_available():
-            inputs, targets = inputs.cuda(), targets.cuda()
+            inputs, y_va, y_expr, y_au, mask_va, mask_expr, mask_au = inputs.cuda(), y_va.cuda(), y_expr.cuda(), y_au.cuda(), mask_va.cuda(), mask_expr.cuda(), mask_au.cuda()
         optimizer.zero_grad()
-        outputs = net(inputs)
-        loss = criterion(outputs, targets)
+        yhat_va, yhat_expr, yhat_au = net(inputs)
+        loss = mask_va * criteria['VA'](yhat_va, y_va) + mask_expr * criteria['VA'](yhat_expr, y_expr) + mask_au * criteria['VA'](yhat_au, y_au)
         loss.backward()
         optimizer.step()
         losses.update(loss.data.item(), inputs.size(0))
@@ -56,17 +56,17 @@ def train(conf,net,train_loader,optimizer,epoch,criterion):
 
 
 # Val
-def val(net,val_loader,criterion):
+def val(net,val_loader,criteria):
     losses = AverageMeter()
     net.eval()
     statistics_list = None
-    for batch_idx, (inputs, _, _, targets) in enumerate(tqdm(val_loader)):
+    for batch_idx, (inputs, y_va, y_expr, y_au, mask_va, mask_expr, mask_au) in enumerate(tqdm(val_loader)):
         with torch.no_grad():
             targets = targets.float()
             if torch.cuda.is_available():
                 inputs, targets = inputs.cuda(), targets.cuda()
-            outputs = net(inputs)
-            loss = criterion(outputs, targets)
+            yhat_va, yhat_expr, yhat_au = net(inputs)
+            loss = mask_va * criteria['VA'](yhat_va, y_va) + mask_expr * criteria['VA'](yhat_expr, y_expr) + mask_au * criteria['VA'](yhat_au, y_au)
             losses.update(loss.data.item(), inputs.size(0))
             update_list = statistics(outputs, targets.detach(), 0.5)
             statistics_list = update_statistics_list(statistics_list, update_list)
@@ -93,7 +93,10 @@ def main(conf):
         net = nn.DataParallel(net).cuda()
         train_weight = train_weight.cuda()
 
-    criterion = WeightedAsymmetricLoss(weight=train_weight)
+    criteria = {}
+    criteria['EXPR'] = CrossEntropyLoss
+    criteria['VA'] = RegressionLoss
+    criteria['AU'] = WeightedAsymmetricLoss(weight=train_weight)
     optimizer = optim.AdamW(net.parameters(),  betas=(0.9, 0.999), lr=conf.learning_rate, weight_decay=conf.weight_decay)
     print('the init learning rate is ', conf.learning_rate)
 
@@ -101,8 +104,8 @@ def main(conf):
     for epoch in range(start_epoch, conf.epochs):
         lr = optimizer.param_groups[0]['lr']
         logging.info("Epoch: [{} | {} LR: {} ]".format(epoch + 1, conf.epochs, lr))
-        train_loss = train(conf,net,train_loader,optimizer,epoch,criterion)
-        val_loss, val_mean_f1_score, val_f1_score, val_mean_acc, val_acc = val(net, val_loader, criterion)
+        train_loss = train(conf,net,train_loader,optimizer,epoch,criteria)
+        val_loss, val_mean_f1_score, val_f1_score, val_mean_acc, val_acc = val(net, val_loader, criteria)
 
         # log
         infostr = {'Epoch:  {}   train_loss: {:.5f}  val_loss: {:.5f}  val_mean_f1_score {:.2f},val_mean_acc {:.2f}'

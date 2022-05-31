@@ -169,7 +169,7 @@ class Head(nn.Module):
         cl = F.normalize(f_v, p=2, dim=-1)
         cl = (cl * sc.view(1, n, c)).sum(dim=-1, keepdim=False)
         cl_edge = self.edge_fc(f_e)
-        return cl, cl_edge
+        return cl, cl_edge, f_v
 
 
 class MEFARG(nn.Module):
@@ -202,9 +202,31 @@ class MEFARG(nn.Module):
         self.global_linear = LinearBlock(self.in_channels, self.out_channels)
         self.head = Head(self.out_channels, num_classes)
 
+        self.AU_metric_dim = 16
+        self.num_classes = num_classes
+        for i_au in range(num_classes):
+            matrix = nn.Linear(512, self.AU_metric_dim, bias=False)
+            self.transformation_matrices.append(matrix)
+        self.transformation_matrices = nn.ModuleList(self.transformation_matrices)
+
+        self.va_classifier = nn.Linear(self.AU_metric_dim, 8)
+        self.expr_classifier = nn.Linear(self.AU_metric_dim, 2)
+
     def forward(self, x):
         # x: b d c
         x = self.backbone(x)
         x = self.global_linear(x)
-        cl, cl_edge = self.head(x)
-        return cl, cl_edge
+        cl, cl_edge, f_v = self.head(x)
+
+        EXPR_VA_metrics = []
+        for i_au in range(self.num_classes):
+            au_metric = f_v[:, i_au, ...]
+            projected = self.transformation_matrices[i_au](au_metric)
+            EXPR_VA_metrics.append(projected)
+        EXPR_VA_metrics = torch.stack(EXPR_VA_metrics, dim=1) # bs, numeber of regions, dim
+        EXPR_VA_metrics = EXPR_VA_metrics.mean(1)
+
+        expr = self.expr_classifier(EXPR_VA_metrics)
+        va = self.va_classifier(EXPR_VA_metrics)
+
+        return va, expr, cl, cl_edge
