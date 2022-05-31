@@ -59,20 +59,36 @@ def train(conf,net,train_loader,optimizer,epoch,criteria):
 def val(net,val_loader,criteria):
     losses = AverageMeter()
     net.eval()
-    statistics_list = None
+    au_statistics_list = None
+    ex_statistics_list = None
     for batch_idx, (inputs, y_va, y_expr, y_au, mask_va, mask_expr, mask_au) in enumerate(tqdm(val_loader)):
         with torch.no_grad():
-            targets = targets.float()
+            y_va = y_va.float()
+            y_expr = y_expr.float()
+            y_au = y_au.float()
+            mask_va = mask_va.float()
+            mask_expr = mask_expr.float()
+            mask_au = mask_au.float()
             if torch.cuda.is_available():
-                inputs, targets = inputs.cuda(), targets.cuda()
+                y_va = y_va.cuda()
+                y_expr = y_expr.cuda()
+                y_au = y_au.cuda()
+                mask_va = mask_va.cuda()
+                mask_expr = mask_expr.cuda()
+                mask_au = mask_au.cuda()
             yhat_va, yhat_expr, yhat_au = net(inputs)
             loss = mask_va * criteria['VA'](yhat_va, y_va) + mask_expr * criteria['VA'](yhat_expr, y_expr) + mask_au * criteria['VA'](yhat_au, y_au)
             losses.update(loss.data.item(), inputs.size(0))
-            update_list = statistics(outputs, targets.detach(), 0.5)
-            statistics_list = update_statistics_list(statistics_list, update_list)
-    mean_f1_score, f1_score_list = calc_f1_score(statistics_list)
-    mean_acc, acc_list = calc_acc(statistics_list)
-    return losses.avg, mean_f1_score, f1_score_list, mean_acc, acc_list
+
+            au_update_list = statistics(yhat_au, y_au.detach(), 0.5)
+            au_statistics_list = update_statistics_list(au_statistics_list, au_update_list)
+
+    au_mean_f1_score, _ = calc_f1_score(au_statistics_list)
+    ex_mean_f1_score, _ = calc_f1_score(ex_statistics_list)
+    performance = au_mean_f1_score + ex_mean_f1_score 
+    
+    # mean_acc, acc_list = calc_acc(au_statistics_list)
+    return losses.avg, au_mean_f1_score, ex_mean_f1_score, mean_acc, performance
 
 
 def main(conf):

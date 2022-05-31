@@ -4,7 +4,16 @@ from torchvision import transforms
 from PIL import Image
 import torch.nn as nn
 import numpy as np
-
+import torch.nn.functional as F
+import torchvision.transforms as transforms
+import torch 
+import torch.nn as nn
+import torchvision
+import torch.nn.functional as F
+import torchvision.transforms.functional as TF
+from sklearn.metrics import f1_score
+import numpy as np
+from scipy.ndimage.filters import gaussian_filter
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
@@ -297,6 +306,7 @@ def RegressionLoss(y_hat, y):
 def CrossEntropyLoss(y_hat, y):
     return F.cross_entropy(y_hat, y)
 
+EPS = 1e-8
 class NegativeCCCLoss(nn.Module):
     def __init__(self, digitize_num=20, range=[-1, 1], weight=None):
         super(NegativeCCCLoss, self).__init__() 
