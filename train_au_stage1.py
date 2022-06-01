@@ -41,14 +41,31 @@ def train(conf,net,train_loader,optimizer,epoch,criteria):
     losses = AverageMeter()
     net.train()
     train_loader_len = len(train_loader)
-    for batch_idx, (inputs, y_va, y_expr, y_au, mask_va, mask_expr, mask_au) in enumerate(tqdm(train_loader)):
+    for batch_idx, (inputs, y_va, y_ex, y_au, mask_va, mask_ex, mask_au) in enumerate(tqdm(train_loader)):
         adjust_learning_rate(optimizer, epoch, conf.epochs, conf.learning_rate, batch_idx, train_loader_len)
-        y_va, y_expr, y_au, mask_va, mask_expr, mask_au = y_va.float(), y_expr.float(), y_au.float(), mask_va.float(), mask_expr.float(), mask_au.float()
+        y_va = y_va.float()
+        # y_ex = y_ex.float()
+        y_au = y_au.float()
+        mask_va = mask_va.float().unsqueeze(-1)
+        mask_ex = mask_ex.float().unsqueeze(-1)
+        mask_au = mask_au.float().unsqueeze(-1)
         if torch.cuda.is_available():
-            inputs, y_va, y_expr, y_au, mask_va, mask_expr, mask_au = inputs.cuda(), y_va.cuda(), y_expr.cuda(), y_au.cuda(), mask_va.cuda(), mask_expr.cuda(), mask_au.cuda()
+            inputs = inputs.cuda()
+            y_va = y_va.cuda()
+            y_ex = y_ex.cuda()
+            y_au = y_au.cuda()
+            mask_va = mask_va.cuda()
+            mask_ex = mask_ex.cuda()
+            mask_au = mask_au.cuda()
         optimizer.zero_grad()
-        yhat_va, yhat_expr, yhat_au = net(inputs)
-        loss = mask_va * criteria['VA'](yhat_va, y_va) + mask_expr * criteria['VA'](yhat_expr, y_expr) + mask_au * criteria['VA'](yhat_au, y_au)
+        yhat_va, yhat_ex, yhat_au = net(inputs)
+        y_va = mask_va * y_va
+        y_ex = mask_ex * y_ex
+        y_au = mask_au * y_au
+        yhat_va = mask_va * yhat_va
+        yhat_ex = mask_ex * yhat_ex
+        yhat_au = mask_au * yhat_au
+        loss = criteria['VA'](yhat_va, y_va) + criteria['EX'](yhat_ex, y_ex) + criteria['AU'](yhat_au, y_au)
         loss.backward()
         optimizer.step()
         losses.update(loss.data.item(), inputs.size(0))
@@ -59,36 +76,66 @@ def train(conf,net,train_loader,optimizer,epoch,criteria):
 def val(net,val_loader,criteria):
     losses = AverageMeter()
     net.eval()
-    au_statistics_list = None
-    ex_statistics_list = None
-    for batch_idx, (inputs, y_va, y_expr, y_au, mask_va, mask_expr, mask_au) in enumerate(tqdm(val_loader)):
+    all_y_va = None
+    all_y_ex = None
+    all_y_au = None
+    all_yhat_va = None
+    all_yhat_ex = None
+    all_yhat_au = None
+    for batch_idx, (inputs, y_va, y_ex, y_au, mask_va, mask_ex, mask_au) in enumerate(tqdm(val_loader)):
         with torch.no_grad():
             y_va = y_va.float()
-            y_expr = y_expr.float()
+            # y_ex = y_ex.float()
             y_au = y_au.float()
-            mask_va = mask_va.float()
-            mask_expr = mask_expr.float()
-            mask_au = mask_au.float()
+            mask_va = mask_va.float().unsqueeze(-1)
+            mask_ex = mask_ex.float().unsqueeze(-1)
+            mask_au = mask_au.float().unsqueeze(-1)
             if torch.cuda.is_available():
+                inputs = inputs.cuda()
                 y_va = y_va.cuda()
-                y_expr = y_expr.cuda()
+                y_ex = y_ex.cuda()
                 y_au = y_au.cuda()
                 mask_va = mask_va.cuda()
-                mask_expr = mask_expr.cuda()
+                mask_ex = mask_ex.cuda()
                 mask_au = mask_au.cuda()
-            yhat_va, yhat_expr, yhat_au = net(inputs)
-            loss = mask_va * criteria['VA'](yhat_va, y_va) + mask_expr * criteria['VA'](yhat_expr, y_expr) + mask_au * criteria['VA'](yhat_au, y_au)
+            yhat_va, yhat_ex, yhat_au = net(inputs)
+            y_va = mask_va * y_va
+            y_ex = mask_ex * y_ex
+            y_au = mask_au * y_au
+            yhat_va = mask_va * yhat_va
+            yhat_ex = mask_ex * yhat_ex
+            yhat_au = mask_au * yhat_au
+            loss = criteria['VA'](yhat_va, y_va) + criteria['EX'](yhat_ex, y_ex) + criteria['AU'](yhat_au, y_au)
             losses.update(loss.data.item(), inputs.size(0))
 
-            au_update_list = statistics(yhat_au, y_au.detach(), 0.5)
-            au_statistics_list = update_statistics_list(au_statistics_list, au_update_list)
+            if all_y_va == None:
+                all_y_va = y_va.clone()
+                all_y_ex = y_ex.clone()
+                all_y_au = y_au.clone()
+                all_yhat_va = yhat_va.clone()
+                all_yhat_ex = yhat_ex.clone()
+                all_yhat_au = yhat_au.clone()
+            else:
+                all_y_va = torch.cat((all_y_va, y_va), 0)
+                all_y_ex = torch.cat((all_y_ex, y_ex), 0)
+                all_y_au = torch.cat((all_y_au, y_au), 0)
+                all_yhat_va = torch.cat((all_yhat_va, yhat_va), 0)
+                all_yhat_ex = torch.cat((all_yhat_ex, yhat_ex), 0)
+                all_yhat_au = torch.cat((all_yhat_au, yhat_au), 0)
 
-    au_mean_f1_score, _ = calc_f1_score(au_statistics_list)
-    ex_mean_f1_score, _ = calc_f1_score(ex_statistics_list)
-    performance = au_mean_f1_score + ex_mean_f1_score 
+    all_y_va = all_y_va.cpu()
+    all_y_ex = all_y_ex.cpu()
+    all_y_au = all_y_au.cpu()
+    all_yhat_va = all_yhat_va.cpu()
+    all_yhat_ex = all_yhat_ex.cpu()
+    all_yhat_au = all_yhat_au.cpu()
+    va_metrics = VA_metric(all_y_va, all_yhat_va)
+    ex_metrics = EX_metric(all_y_ex, all_yhat_ex)
+    au_metrics = AU_metric(all_y_au, all_yhat_au)
+    performance = va_metrics + ex_metrics + au_metrics
     
     # mean_acc, acc_list = calc_acc(au_statistics_list)
-    return losses.avg, au_mean_f1_score, ex_mean_f1_score, mean_acc, performance
+    return losses.avg, va_metrics, ex_metrics, au_metrics, performance
 
 
 def main(conf):
@@ -110,7 +157,7 @@ def main(conf):
         train_weight = train_weight.cuda()
 
     criteria = {}
-    criteria['EXPR'] = CrossEntropyLoss
+    criteria['EX'] = CrossEntropyLoss
     criteria['VA'] = RegressionLoss
     criteria['AU'] = WeightedAsymmetricLoss(weight=train_weight)
     optimizer = optim.AdamW(net.parameters(),  betas=(0.9, 0.999), lr=conf.learning_rate, weight_decay=conf.weight_decay)
@@ -121,20 +168,12 @@ def main(conf):
         lr = optimizer.param_groups[0]['lr']
         logging.info("Epoch: [{} | {} LR: {} ]".format(epoch + 1, conf.epochs, lr))
         train_loss = train(conf,net,train_loader,optimizer,epoch,criteria)
-        val_loss, val_mean_f1_score, val_f1_score, val_mean_acc, val_acc = val(net, val_loader, criteria)
+        val_loss, val_va_metrics, val_ex_metrics, val_au_metrics, val_performance = val(net, val_loader, criteria)
 
         # log
-        infostr = {'Epoch:  {}   train_loss: {:.5f}  val_loss: {:.5f}  val_mean_f1_score {:.2f},val_mean_acc {:.2f}'
-                .format(epoch + 1, train_loss, val_loss, 100.* val_mean_f1_score, 100.* val_mean_acc)}
+        infostr = {'Epoch:  {}   train_loss: {:.5f}  val_loss: {:.5f}  val_va_metrics {:.2f}   val_ex_metrics {:.2f}  val_au_metrics {:.2f}  val_performance {:.2f}'
+                .format(epoch + 1, train_loss, val_loss, val_va_metrics, 100.* val_ex_metrics, 100.* val_au_metrics, val_performance)}
 
-        logging.info(infostr)
-        infostr = {'F1-score-list:'}
-        logging.info(infostr)
-        infostr = SAW2_infolist(val_f1_score)
-        logging.info(infostr)
-        infostr = {'Acc-list:'}
-        logging.info(infostr)
-        infostr = SAW2_infolist(val_acc)
         logging.info(infostr)
 
         # save checkpoints

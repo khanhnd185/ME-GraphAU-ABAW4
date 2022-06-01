@@ -230,10 +230,18 @@ class SAW2(Dataset):
             if self._transform is not None:
                 img = self._transform(img)
 
+        mask_va = int(-5 not in va)
+        mask_expr = int(expr != -1)
+        mask_au = int(-1 not in au)
+
+        e = np.zeros(8)
+        if expr != -1:
+            e[expr] = 1
+
         if self._stage == 2 and self._train:
-            return img, va, expr, au, rel
+            return img, np.array(va), e, au, mask_va, mask_expr, mask_au, rel
         else:
-            return img, va, expr, au
+            return img, np.array(va), e, au, mask_va, mask_expr, mask_au
 
     def __len__(self):
         return len(self.data_list)

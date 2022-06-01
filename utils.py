@@ -341,3 +341,49 @@ class NegativeCCCLoss(nn.Module):
             y_mean = weighted_mean(y, self.weight)
             ccc = 2*rho*torch.sqrt(x_var)*torch.sqrt(y_var)/(x_var + y_var + torch.pow(x_mean - y_mean, 2) +EPS)
         return 1-ccc
+
+def CCC_score(x, y):
+    x = x.numpy()
+    y = y.numpy()
+    vx = x - np.mean(x)
+    vy = y - np.mean(y)
+    rho = np.sum(vx * vy) / (np.sqrt(np.sum(vx**2)) * np.sqrt(np.sum(vy**2)))
+    x_m = np.mean(x)
+    y_m = np.mean(y)
+    x_s = np.std(x)
+    y_s = np.std(y)
+    ccc = 2*rho*x_s*y_s/(x_s**2 + y_s**2 + (x_m - y_m)**2)
+    return ccc
+
+def EX_metric(y, yhat):
+    i = torch.argmax(yhat, dim=1)
+    yhat = torch.zeros(yhat.shape)
+    yhat[np.arange(len(i)), i] = 1
+
+    if not len(y.shape) == 1:
+        if y.shape[1] == 1:
+            y = y.reshape(-1)
+        else:
+            y = np.argmax(y, axis=-1)
+    if not len(yhat.shape) == 1:
+        if yhat.shape[1] == 1:
+            yhat = yhat.reshape(-1)
+        else:
+            yhat = np.argmax(yhat, axis=-1)
+
+    return f1_score(y, yhat, average='macro')
+
+
+def VA_metric(y, yhat):
+    avg_ccc = float(CCC_score(y[:,0], yhat[:,0]) + CCC_score(y[:,1], yhat[:,1])) / 2
+    return avg_ccc
+
+
+def AU_metric(y, yhat, thresh=0.5):
+    yhat = (yhat >= thresh)
+    N, label_size = y.shape
+    f1s = []
+    for i in range(label_size):
+        f1 = f1_score(y[:, i], yhat[:, i])
+        f1s.append(f1)
+    return np.mean(f1s)
