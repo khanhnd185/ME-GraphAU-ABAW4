@@ -67,6 +67,8 @@ def train(conf, net, trainldr, optimizer, epoch, criteria):
         yhat_va = mask_va * yhat_va
         yhat_ex = mask_ex * yhat_ex
         yhat_au = mask_au * yhat_au
+        relations = mask_au.long() * relations
+        outputs_relation = mask_au.unsqueeze(-1).repeat(1, 144 ,4) * outputs_relation
         loss = criteria['VA'](yhat_va, y_va) + criteria['EX'](yhat_ex, y_ex) + criteria['AU'](yhat_au, y_au)
         edge_loss = criteria['REL'](outputs_relation.view(-1,4), relations.view(-1))
         total_loss = loss + conf.lam * edge_loss

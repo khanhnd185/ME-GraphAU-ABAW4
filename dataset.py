@@ -26,7 +26,7 @@ def make_mtl_dataset(txt_file, au_relation=None):
     expr = [int(l[3]) for l in lines]
     AUs = [np.array([float(x) for x in l[4:]]) for l in lines]
 
-    ids_list = [i for i, x in enumerate(AUs) if -1 not in x]
+    ids_list = [i for i, x in enumerate(AUs)]
     AUs_new = [AUs[i] for i in ids_list]
     Val_new = [valence[i] for i in ids_list]
     Ars_new = [arousal[i] for i in ids_list]
