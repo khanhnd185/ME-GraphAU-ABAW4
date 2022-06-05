@@ -301,7 +301,7 @@ class WeightedAsymmetricLoss(nn.Module):
         return -loss.sum() / (mask.sum() + EPS)
 
 def RegressionLoss(y_hat, y):
-    loss1 =  NegativeCCCLoss(digitize_num=1)(y_hat[:, 0], y[:, 0]) + NegativeCCCLoss(digitize_num=1)(y_hat[:, 1], y[:, 1])
+    loss1 =  MaskNegativeCCCLoss()(y_hat[:, 0], y[:, 0]) + MaskNegativeCCCLoss()(y_hat[:, 1], y[:, 1])
     return loss1
 
 def CrossEntropyLoss(y_hat, y):
@@ -341,6 +341,22 @@ class NegativeCCCLoss(nn.Module):
             x_mean = weighted_mean(x, self.weight)
             y_mean = weighted_mean(y, self.weight)
             ccc = 2*rho*torch.sqrt(x_var)*torch.sqrt(y_var)/(x_var + y_var + torch.pow(x_mean - y_mean, 2) +EPS)
+        return 1-ccc
+
+class MaskNegativeCCCLoss(nn.Module):
+    def __init__(self):
+        super(MaskNegativeCCCLoss, self).__init__()
+    def forward(self, x, y, m):
+        y = y.view(-1)
+        x = x.view(-1)
+        x = x * m
+        y = y * m
+        N = torch.sum(m)
+        x_m = torch.sum(x) / N
+        y_m = torch.sum(x) / N
+        vx = (x - x_m) * m
+        vy = (y - y_m) * m
+        ccc = 2*torch.dot(vx, vy) / (torch.dot(vx, vx) + torch.dot(vy, vy) + N * torch.pow(x_m - y_m, 2) + EPS)
         return 1-ccc
 
 def CCC_score(x, y):

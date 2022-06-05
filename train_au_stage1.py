@@ -44,7 +44,6 @@ def train(conf, net, trainldr, optimizer, epoch, criteria):
         y_va = y_va.float()
         y_au = y_au.float()
         mask_va = mask_va.float().unsqueeze(-1)
-        mask_ex = mask_ex.float().unsqueeze(-1)
         mask_au = mask_au.float()
         if torch.cuda.is_available():
             inputs = inputs.cuda()
@@ -52,17 +51,10 @@ def train(conf, net, trainldr, optimizer, epoch, criteria):
             y_ex = y_ex.cuda()
             y_au = y_au.cuda()
             mask_va = mask_va.cuda()
-            mask_ex = mask_ex.cuda()
             mask_au = mask_au.cuda()
         optimizer.zero_grad()
         yhat_va, yhat_ex, yhat_au = net(inputs)
-        y_va = mask_va * y_va
-        yhat_va = mask_va * yhat_va  
-        loss_va = criteria['VA'](yhat_va, y_va)
-        loss_ex = criteria['EX'](yhat_ex, y_ex)
-        loss_au = criteria['AU'](yhat_au, y_au, mask_au)
-        loss = loss_va + loss_ex + loss_au
-        # loss = criteria['VA'](yhat_va, y_va) + criteria['EX'](yhat_ex, y_ex) + criteria['AU'](yhat_au, y_au)
+        loss = criteria['VA'](yhat_va, y_va, mask_va) + criteria['EX'](yhat_ex, y_ex) + criteria['AU'](yhat_au, y_au, mask_au)
         loss.backward()
         optimizer.step()
         losses.update(loss.data.item(), inputs.size(0))
@@ -80,27 +72,18 @@ def val(net, validldr, criteria):
     for batch_idx, (inputs, y_va, y_ex, y_au, mask_va, mask_ex, mask_au) in enumerate(tqdm(validldr)):
         with torch.no_grad():
             y_va = y_va.float()
-            # y_ex = y_ex.float()
             y_au = y_au.float()
             mask_va = mask_va.float().unsqueeze(-1)
-            mask_ex = mask_ex.float().unsqueeze(-1)
-            mask_au = mask_au.float().unsqueeze(-1)
+            mask_au = mask_au.float()
             if torch.cuda.is_available():
                 inputs = inputs.cuda()
                 y_va = y_va.cuda()
                 y_ex = y_ex.cuda()
                 y_au = y_au.cuda()
                 mask_va = mask_va.cuda()
-                mask_ex = mask_ex.cuda()
                 mask_au = mask_au.cuda()
             yhat_va, yhat_ex, yhat_au = net(inputs)
-            y_va = mask_va * y_va
-            y_ex = mask_ex * y_ex
-            y_au = mask_au * y_au
-            yhat_va = mask_va * yhat_va
-            yhat_ex = mask_ex * yhat_ex
-            yhat_au = mask_au * yhat_au
-            loss = criteria['VA'](yhat_va, y_va) + criteria['EX'](yhat_ex, y_ex) + criteria['AU'](yhat_au, y_au)
+            loss = criteria['VA'](yhat_va, y_va, mask_va) + criteria['EX'](yhat_ex, y_ex) + criteria['AU'](yhat_au, y_au, mask_au)
             losses.update(loss.data.item(), inputs.size(0))
 
             if all_y_va == None:
@@ -131,9 +114,13 @@ def val(net, validldr, criteria):
 
 def main(conf):
     start_epoch = 0
-    trainldr, validldr = get_dataloader(conf)
-    train_weight = torch.from_numpy(np.loadtxt(os.path.join('train_weight.txt')))
+    train_loader, valid_loader = get_dataloader(conf)
     net = MEFARG(num_classes=conf.num_classes, backbone=conf.arc, neighbor_num=conf.neighbor_num, metric=conf.metric)
+
+    valid_au_weight = torch.from_numpy(np.loadtxt(os.path.join('valid_weight_au.txt')))
+    valid_ex_weight = torch.from_numpy(np.loadtxt(os.path.join('valid_weight_ex.txt')))
+    train_au_weight = torch.from_numpy(np.loadtxt(os.path.join('train_weight_au.txt')))
+    train_ex_weight = torch.from_numpy(np.loadtxt(os.path.join('train_weight_ex.txt')))
 
     if conf.resume != '':
         logging.info("Resume form | {} ]".format(conf.resume))
@@ -143,20 +130,37 @@ def main(conf):
         net = nn.DataParallel(net).cuda()
         train_weight = train_weight.cuda()
 
-    criteria = {}
-    criteria['EX'] = nn.CrossEntropyLoss(ignore_index=-1)
-    criteria['VA'] = RegressionLoss
-    criteria['AU'] = WeightedAsymmetricLoss(weight=train_weight)
+    train_loss = {}
+    valid_loss = {}
+    train_loss['VA'] = RegressionLoss
+    valid_loss['VA'] = RegressionLoss
+    train_loss['AU'] = WeightedAsymmetricLoss(weight=train_au_weight)
+    valid_loss['AU'] = WeightedAsymmetricLoss(weight=valid_au_weight)
+    train_loss['EX'] = nn.CrossEntropyLoss(weight=train_ex_weight, ignore_index=-1)
+    valid_loss['EX'] = nn.CrossEntropyLoss(weight=valid_ex_weight, ignore_index=-1)
+
     optimizer = optim.AdamW(net.parameters(),  betas=(0.9, 0.999), lr=conf.learning_rate, weight_decay=conf.weight_decay)
 
     for epoch in range(start_epoch, conf.epochs):
         lr = optimizer.param_groups[0]['lr']
         logging.info("Epoch: [{} | {} LR: {} ]".format(epoch, conf.epochs, lr))
-        train_loss = train(conf,net,trainldr,optimizer,epoch,criteria)
-        val_loss, val_va_metrics, val_ex_metrics, val_au_metrics, val_performance = val(net, validldr, criteria)
+        train_loss = train(conf, net, train_loader, optimizer, epoch, train_loss)
+        val_loss, val_va_metrics, val_ex_metrics, val_au_metrics, val_performance = val(net, valid_loader, valid_loss)
 
-        infostr = {'Epoch: {}  train_loss: {:.5f}  val_loss: {:.5f}  val_va_metrics: {:.2f}  val_ex_metrics: {:.2f}  val_au_metrics: {:.2f}  val_performance: {:.2f}'
-                .format(epoch, train_loss, val_loss, val_va_metrics, val_ex_metrics, val_au_metrics, val_performance)}
+        infostr = {'Epoch: {} \
+                    train_loss: {:.5f} \
+                    val_loss: {:.5f} \
+                    val_va_metrics: {:.2f} \
+                    val_ex_metrics: {:.2f} \
+                    val_au_metrics: {:.2f} \
+                    val_performance: {:.2f}'
+                    .format(epoch,
+                            train_loss,
+                            val_loss,
+                            val_va_metrics,
+                            val_ex_metrics,
+                            val_au_metrics,
+                            val_performance)}
 
         logging.info(infostr)
 
