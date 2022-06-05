@@ -234,14 +234,10 @@ class SAW2(Dataset):
         mask_expr = int(expr != -1)
         mask_au = int(-1 not in au)
 
-        e = np.zeros(8)
-        if expr != -1:
-            e[expr] = 1
-
         if self._stage == 2 and self._train:
-            return img, np.array(va), e, au, mask_va, mask_expr, mask_au, rel
+            return img, np.array(va), expr, au, mask_va, mask_expr, mask_au, rel
         else:
-            return img, np.array(va), e, au, mask_va, mask_expr, mask_au
+            return img, np.array(va), expr, au, mask_va, mask_expr, mask_au
 
     def __len__(self):
         return len(self.data_list)

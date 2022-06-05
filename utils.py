@@ -276,7 +276,7 @@ class WeightedAsymmetricLoss(nn.Module):
         self.eps = eps
         self.weight = weight
 
-    def forward(self, x, y):
+    def forward(self, x, y, mask):
 
         xs_pos = x
         xs_neg = 1 - x
@@ -297,7 +297,8 @@ class WeightedAsymmetricLoss(nn.Module):
             loss = loss * self.weight.view(1,-1)
 
         loss = loss.mean(dim=-1)
-        return -loss.mean()
+        loss = loss * mask
+        return -loss.sum() / (mask.sum() + EPS)
 
 def RegressionLoss(y_hat, y):
     loss1 =  NegativeCCCLoss(digitize_num=1)(y_hat[:, 0], y[:, 0]) + NegativeCCCLoss(digitize_num=1)(y_hat[:, 1], y[:, 1])
