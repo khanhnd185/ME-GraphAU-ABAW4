@@ -1,4 +1,5 @@
 from math import cos, pi
+from re import S
 import torch
 from torchvision import transforms
 from PIL import Image
@@ -22,16 +23,16 @@ class AverageMeter(object):
         self.reset()
 
     def reset(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
+        self.sum = 0.
+        self.count = 0.
 
     def update(self, val, n=1):
-        self.val = val
+        n = float(n)
         self.sum += val * n
         self.count += n
-        self.avg = self.sum / self.count
+    
+    def avg(self):
+        return (self.sum / self.count)
 
 
 def statistics(pred, y, thresh):
@@ -300,12 +301,14 @@ class WeightedAsymmetricLoss(nn.Module):
         loss = loss * mask
         return -loss.sum() / (mask.sum() + EPS)
 
-def RegressionLoss(y_hat, y):
-    loss1 =  MaskNegativeCCCLoss()(y_hat[:, 0], y[:, 0]) + MaskNegativeCCCLoss()(y_hat[:, 1], y[:, 1])
+def RegressionLoss(y_hat, y, m):
+    loss1 =  MaskNegativeCCCLoss()(y_hat[:, 0], y[:, 0], m) + MaskNegativeCCCLoss()(y_hat[:, 1], y[:, 1], m)
     return loss1
 
 def CrossEntropyLoss(y_hat, y):
     return F.cross_entropy(y_hat, y)
+
+
 
 EPS = 1e-8
 class NegativeCCCLoss(nn.Module):
@@ -360,8 +363,6 @@ class MaskNegativeCCCLoss(nn.Module):
         return 1-ccc
 
 def CCC_score(x, y):
-    x = x.numpy()
-    y = y.numpy()
     vx = x - np.mean(x)
     vy = y - np.mean(y)
     rho = np.sum(vx * vy) / (np.sqrt(np.sum(vx**2)) * np.sqrt(np.sum(vy**2)))
@@ -373,8 +374,8 @@ def CCC_score(x, y):
     return ccc
 
 def EX_metric(y, yhat):
-    i = torch.argmax(yhat, dim=1)
-    yhat = torch.zeros(yhat.shape)
+    i = np.argmax(yhat, axis=1)
+    yhat = np.zeros(yhat.shape)
     yhat[np.arange(len(i)), i] = 1
 
     if not len(y.shape) == 1:
@@ -404,3 +405,17 @@ def AU_metric(y, yhat, thresh=0.5):
         f1 = f1_score(y[:, i], yhat[:, i])
         f1s.append(f1)
     return np.mean(f1s)
+
+def ConvertNum2Weight(x, y, z):
+    x, y, z = float(x), float(y), float(z)
+    if x!=0:
+        x = 1. / x
+    if y!=0:
+        y = 1. / y
+    if z!=0:
+        z = 1. / z
+    if x==0 and y==0 and z==0:
+        return 0,0,0
+    else:
+        a = (x + y + z) / 3.
+        return x / a, y / a, z / a

@@ -26,18 +26,10 @@ def make_mtl_dataset(txt_file, au_relation=None):
     expr = [int(l[3]) for l in lines]
     AUs = [np.array([float(x) for x in l[4:]]) for l in lines]
 
-    ids_list = [i for i, x in enumerate(AUs)]
-    AUs_new = [AUs[i] for i in ids_list]
-    Val_new = [valence[i] for i in ids_list]
-    Ars_new = [arousal[i] for i in ids_list]
-    Exp_new = [expr[i] for i in ids_list]
-    Pth_new = [path[i] for i in ids_list]
-
     if au_relation is not None:
-        Rel_new = [au_relation[i, :] for i in ids_list]
-        data_list = [(Pth_new[i], [Val_new[i], Ars_new[i]], Exp_new[i], AUs_new[i], Rel_new[i]) for i in range(len(AUs_new))]
+        data_list = [(path[i], [valence[i], arousal[i]], expr[i], AUs[i], au_relation[i]) for i in range(len(lines))]
     else:
-        data_list = [(Pth_new[i], [Val_new[i], Ars_new[i]], Exp_new[i], AUs_new[i]) for i in range(len(AUs_new))]
+        data_list = [(path[i], [valence[i], arousal[i]], expr[i], AUs[i]) for i in range(len(lines))]
 
     return data_list
 
