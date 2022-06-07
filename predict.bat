@@ -1,0 +1,1 @@
+d:\Python\Python310\python.exe predict.py --arc resnet50 --img 3-25-1920x1080/00107.jpg --model results/resnet50_second_stage/bs_32_seed_0_lr_1e-05_weighted_batch/cur_model_fold1.pth

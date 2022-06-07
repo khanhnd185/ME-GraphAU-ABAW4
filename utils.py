@@ -269,6 +269,7 @@ def load_state_dict(model,path):
     model.load_state_dict(new_state_dict,strict=False)
     return model
 
+EPS = 1e-8
 
 class WeightedAsymmetricLoss(nn.Module):
     def __init__(self, eps=1e-8, disable_torch_grad=True, weight=None):
@@ -301,16 +302,26 @@ class WeightedAsymmetricLoss(nn.Module):
         loss = loss * mask
         return -loss.sum() / (mask.sum() + EPS)
 
-def RegressionLoss(y_hat, y, m):
-    loss1 =  MaskNegativeCCCLoss()(y_hat[:, 0], y[:, 0], m) + MaskNegativeCCCLoss()(y_hat[:, 1], y[:, 1], m)
-    return loss1
+class RegressionLoss(nn.Module):
+    def __init__(self):
+        super(RegressionLoss, self).__init__() 
+        self.loss = MaskNegativeCCCLoss()
 
-def CrossEntropyLoss(y_hat, y):
-    return F.cross_entropy(y_hat, y)
+    def forward(self, x, y, mask):
+        loss1 = self.loss(x[:, 0], y[:, 0], mask) + self.loss(x[:, 1], y[:, 1], mask)
+        return loss1
 
+class MaskedCELoss(nn.Module):
+    def __init__(self, weight=None, ignore_index=-1):
+        super(MaskedCELoss, self).__init__() 
+        self.ce = nn.CrossEntropyLoss(reduction='none', weight=weight, ignore_index=ignore_index)
+    
+    def forward(self, x, y, mask):
+        loss = self.ce(x, y)
+        loss = loss.mean(dim=-1)
+        loss = loss * mask
+        return -loss.sum() / (mask.sum() + EPS)
 
-
-EPS = 1e-8
 class NegativeCCCLoss(nn.Module):
     def __init__(self, digitize_num=20, range=[-1, 1], weight=None):
         super(NegativeCCCLoss, self).__init__() 

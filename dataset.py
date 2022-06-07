@@ -4,7 +4,6 @@ from PIL import Image
 from torch.utils.data import Dataset
 import os
 
-
 def make_dataset(image_list, label_list, au_relation=None):
     len_ = len(image_list)
     if au_relation is not None:
