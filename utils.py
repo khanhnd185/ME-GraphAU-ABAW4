@@ -320,7 +320,7 @@ class MaskedCELoss(nn.Module):
         loss = self.ce(x, y)
         loss = loss.mean(dim=-1)
         loss = loss * mask
-        return -loss.sum() / (mask.sum() + EPS)
+        return loss.sum() / (mask.sum() + EPS)
 
 class NegativeCCCLoss(nn.Module):
     def __init__(self, digitize_num=20, range=[-1, 1], weight=None):
