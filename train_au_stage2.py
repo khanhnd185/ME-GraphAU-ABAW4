@@ -37,9 +37,11 @@ def get_dataloader(conf):
     return trainldr, validldr
 
 def train(conf, net, trainldr, optimizer, epoch, criteria, weight):
-    losses = AverageMeter()
-    losses1 = AverageMeter()
-    losses2 = AverageMeter()
+    total_losses = AverageMeter()
+    va_losses = AverageMeter()
+    ex_losses = AverageMeter()
+    au_losses = AverageMeter()
+    edge_losses = AverageMeter()
     net.train()
     train_loader_len = len(trainldr)
     for batch_idx, (inputs, y_va, y_ex, y_au, mask_va, mask_ex, mask_au, relations) in enumerate(tqdm(trainldr)):
@@ -72,14 +74,19 @@ def train(conf, net, trainldr, optimizer, epoch, criteria, weight):
         total_loss = loss + weight[2] * conf.lam * edge_loss
         total_loss.backward()
         optimizer.step()
-        losses.update(total_loss.data.item(), inputs.size(0))
-        losses1.update(loss.data.item(), inputs.size(0))
-        losses2.update(edge_loss.data.item(), inputs.size(0))
+        total_losses.update(total_loss.data.item(), inputs.size(0))
+        va_losses.update(loss_va.data.item(), inputs.size(0))
+        ex_losses.update(loss_ex.data.item(), inputs.size(0))
+        au_losses.update(loss_au.data.item(), inputs.size(0))
+        edge_losses.update(edge_loss.data.item(), inputs.size(0))
 
-    return losses.avg(), losses1.avg(), losses2.avg()
+    return total_losses.avg(), va_losses.avg(), ex_losses.avg(), au_losses.avg(), edge_losses.avg()
 
 def val(net, validldr, criteria, weight):
-    losses = AverageMeter()
+    total_losses = AverageMeter()
+    va_losses = AverageMeter()
+    ex_losses = AverageMeter()
+    au_losses = AverageMeter()
     net.eval()
     all_y_va = None
     all_y_ex = None
@@ -107,8 +114,11 @@ def val(net, validldr, criteria, weight):
             loss_va = weight[0] * criteria['VA'](yhat_va, y_va, mask_va)
             loss_ex = weight[1] * criteria['EX'](yhat_ex, y_ex, mask_ex)
             loss_au = weight[2] * criteria['AU'](yhat_au, y_au, mask_au)
-            loss = loss_va + loss_ex + loss_au
-            losses.update(loss.data.item(), inputs.size(0))
+            total_loss = loss_va + loss_ex + loss_au
+            total_losses.update(total_loss.data.item(), inputs.size(0))
+            va_losses.update(loss_va.data.item(), inputs.size(0))
+            ex_losses.update(loss_ex.data.item(), inputs.size(0))
+            au_losses.update(loss_au.data.item(), inputs.size(0))
 
             if all_y_va == None:
                 all_y_va = y_va.clone()
@@ -143,7 +153,7 @@ def val(net, validldr, criteria, weight):
     ex_metrics = EX_metric(all_y_ex, all_yhat_ex)
     au_metrics = AU_metric(all_y_au, all_yhat_au)
     performance = va_metrics + ex_metrics + au_metrics
-    return losses.avg(), va_metrics, ex_metrics, au_metrics, performance
+    return total_losses.avg(), va_losses.avg(), ex_losses.avg(), au_losses.avg(), va_metrics, ex_metrics, au_metrics, performance
 
 def main(conf):
     start_epoch = 0
@@ -188,28 +198,45 @@ def main(conf):
     for epoch in range(start_epoch, conf.epochs):
         lr = optimizer.param_groups[0]['lr']
         logging.info("Epoch: [{} | {} LR: {} ]".format(epoch, conf.epochs, lr))
-        train_loss, wa_loss, edge_loss = train(conf, net, train_loader, optimizer, epoch, train_criteria, train_weight)
-        val_loss, val_va_metrics, val_ex_metrics, val_au_metrics, val_performance = val(net, valid_loader, valid_criteria, valid_weight)
+        train_loss, train_va_loss, train_ex_loss, train_au_loss, edge_loss = train(conf, net, train_loader, optimizer, epoch, train_criteria, train_weight)
+        val_loss, val_va_loss, val_ex_loss, val_au_loss, val_va_metrics, val_ex_metrics, val_au_metrics, val_performance = val(net, valid_loader, valid_criteria, valid_weight)
 
         infostr = {'Epoch: {} \
         train_loss: {:.5f} \
-        wa_loss: {:.5f} \
-        edge_loss: {:.5f} \
+        train_va_loss: {:.5f} \
+        train_ex_loss: {:.5f} \
+        train_au_loss: {:.5f} \
+        edge_loss: {:.5f}'
+                .format(epoch,
+                        train_loss,
+                        train_va_loss,
+                        train_ex_loss,
+                        train_au_loss,
+                        edge_loss)}
+        logging.info(infostr)
+
+        infostr = {'Epoch: {} \
         val_loss: {:.5f} \
+        val_va_loss: {:.5f} \
+        val_ex_loss: {:.5f} \
+        val_au_loss: {:.5f}'
+                .format(epoch,
+                        val_loss,
+                        val_va_loss,
+                        val_ex_loss,
+                        val_au_loss)}
+        logging.info(infostr)
+
+        infostr = {'Epoch: {} \
         val_va_metrics: {:.2f} \
         val_ex_metrics: {:.2f} \
         val_au_metrics: {:.2f} \
         val_performance: {:.2f}'
                 .format(epoch,
-                        train_loss,
-                        wa_loss,
-                        edge_loss,
-                        val_loss,
                         val_va_metrics,
                         val_ex_metrics,
                         val_au_metrics,
                         val_performance)}
-
         logging.info(infostr)
 
         if (epoch+1) % 4 == 0:
