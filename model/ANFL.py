@@ -77,7 +77,7 @@ class Head(nn.Module):
         self.num_classes = num_classes
         class_linear_layers = []
         for i in range(self.num_classes):
-            layer = LinearBlock(self.in_channels, self.in_channels, drop=0.2)
+            layer = LinearBlock(self.in_channels, self.in_channels, drop=0.5)
             class_linear_layers += [layer]
         self.class_linears = nn.ModuleList(class_linear_layers)
         self.gnn = GNN(self.in_channels, self.num_classes,neighbor_num=neighbor_num,metric=metric)
@@ -131,7 +131,7 @@ class MEFARG(nn.Module):
         else:
             raise Exception("Error: wrong backbone name: ", backbone)
 
-        self.global_linear = LinearBlock(self.in_channels, self.out_channels, drop=0.2)
+        self.global_linear = LinearBlock(self.in_channels, self.out_channels, drop=0.5)
         self.head = Head(self.out_channels, num_classes, neighbor_num, metric)
 
         self.AU_metric_dim = 16
