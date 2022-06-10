@@ -135,15 +135,17 @@ class MEFARG(nn.Module):
         self.head = Head(self.out_channels, num_classes, neighbor_num, metric)
 
         self.AU_metric_dim = 16
+        self.EX_metric_dim = 8
+        self.VA_metric_dim = 2
         self.num_classes = num_classes
         self.transformation_matrices = []
         for i_au in range(num_classes):
-            matrix = nn.Linear(512, self.AU_metric_dim, bias=False)
+            matrix = nn.Linear(self.out_channels, self.AU_metric_dim, bias=False)
             self.transformation_matrices.append(matrix)
         self.transformation_matrices = nn.ModuleList(self.transformation_matrices)
 
-        self.va_classifier = nn.Linear(self.AU_metric_dim, 2)
-        self.expr_classifier = nn.Linear(self.AU_metric_dim, 8)
+        self.va_classifier = nn.Linear(self.AU_metric_dim, self.VA_metric_dim)
+        self.expr_classifier = nn.Linear(self.AU_metric_dim, self.EX_metric_dim)
 
     def forward(self, x):
         # x: b d c

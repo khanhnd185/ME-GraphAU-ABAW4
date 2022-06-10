@@ -197,7 +197,7 @@ def main(conf):
         train_loss: {:.5f} \
         train_va_loss: {:.5f} \
         train_ex_loss: {:.5f} \
-        train_au_loss: {:.5f}}'
+        train_au_loss: {:.5f}'
                 .format(epoch,
                         train_loss,
                         train_va_loss,
