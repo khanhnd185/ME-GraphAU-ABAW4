@@ -24,3 +24,16 @@ class LinearBlock(nn.Module):
         x = self.fc(x).permute(0, 2, 1)
         x = self.relu(self.bn(x)).permute(0, 2, 1)
         return x
+
+class SimpleDense(nn.Module):
+    def __init__(self, D_in, D_out, drop=0):
+        super(SimpleDense,self).__init__()
+        self.linear1=nn.Linear(D_in, D_out)
+        #self.linear2=nn.Linear(H,D_out)
+        self.drop = nn.Dropout(drop)
+        
+    def forward(self,x):
+        x = self.drop(x)
+        x=torch.sigmoid(self.linear1(x))  
+        #x=self.linear2(x)
+        return x
