@@ -8,6 +8,7 @@ from .swin_transformer import swin_transformer_tiny, swin_transformer_small, swi
 from .resnet import resnet18, resnet50, resnet101
 from .graph import normalize_digraph
 from .basic_block import *
+from .resnet import resnet50_face_sfew_dag as resnetVgg
 
 
 class GNN(nn.Module):
@@ -128,6 +129,10 @@ class MEFARG(nn.Module):
             self.in_channels = self.backbone.fc.weight.shape[1]
             self.out_channels = self.in_channels // 4
             self.backbone.fc = None
+        elif backbone == 'resnetvgg':
+            self.backbone = resnetVgg()
+            self.in_channels = 2048
+            self.out_channels = self.in_channels // 4
         else:
             raise Exception("Error: wrong backbone name: ", backbone)
 
