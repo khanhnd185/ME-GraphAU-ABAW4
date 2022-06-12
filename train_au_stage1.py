@@ -186,6 +186,9 @@ def main(conf):
     valid_criteria['EX'] = MaskedCELoss(weight=valid_ex_weight, ignore_index=-1)
 
     optimizer = optim.AdamW(net.parameters(), betas=(0.9, 0.999), lr=conf.learning_rate, weight_decay=conf.weight_decay)
+    best_performance = 0.0
+    best_val_loss = 100.0
+    epoch_from_last_improvement = 0
 
     for epoch in range(start_epoch, conf.epochs):
         lr = optimizer.param_groups[0]['lr']
@@ -229,13 +232,28 @@ def main(conf):
                         val_performance)}
         logging.info(infostr)
 
-        if (epoch+1) % 4 == 0:
+        if val_loss <= best_val_loss:
             checkpoint = {
                 'epoch': epoch,
+                'val_loss': val_loss,
                 'state_dict': net.state_dict(),
                 'optimizer': optimizer.state_dict(),
             }
-            torch.save(checkpoint, os.path.join(conf['outdir'], 'epoch' + str(epoch) + '_model_fold' + str(conf.fold) + '.pth'))
+            torch.save(checkpoint, os.path.join(conf['outdir'], 'epoch' + str(epoch) + '_best_val_loss.pth'))
+            best_val_loss = val_loss
+            epoch_from_last_improvement = 0
+        else:
+            epoch_from_last_improvement += 1
+
+        if val_performance >= best_performance:
+            checkpoint = {
+                'epoch': epoch,
+                'val_loss': val_loss,
+                'state_dict': net.state_dict(),
+                'optimizer': optimizer.state_dict(),
+            }
+            torch.save(checkpoint, os.path.join(conf['outdir'], 'epoch' + str(epoch) + '_best_val_perform.pth'))
+            best_performance = val_performance
 
         checkpoint = {
             'epoch': epoch,
@@ -243,6 +261,9 @@ def main(conf):
             'optimizer': optimizer.state_dict(),
         }
         torch.save(checkpoint, os.path.join(conf['outdir'], 'cur_model_fold' + str(conf.fold) + '.pth'))
+
+        if epoch_from_last_improvement >= 4:
+            break # Early Stopping
 
 if __name__=="__main__":
     conf = get_config()
