@@ -149,8 +149,8 @@ class MEFARG(nn.Module):
             self.transformation_matrices.append(matrix)
         self.transformation_matrices = nn.ModuleList(self.transformation_matrices)
 
-        self.va_classifier = nn.Linear(self.AU_metric_dim, self.VA_metric_dim)
-        self.expr_classifier = SimpleDense(self.AU_metric_dim, self.EX_metric_dim, self.EX_metric_dim, drop=0.5)
+        self.va_classifier = TanhDense(self.AU_metric_dim, self.VA_metric_dim)
+        self.expr_classifier = SigmoidDense(self.AU_metric_dim, self.EX_metric_dim, drop=0.5)
 
     def forward(self, x):
         # x: b d c
