@@ -21,7 +21,7 @@ parser.add_argument('-f','--fold', default=1, type=int, metavar='N', help='the f
 # Param
 parser.add_argument('-b','--batch-size', default=64, type=int, metavar='N', help='mini-batch size (default: 128)')
 parser.add_argument('-lr', '--learning-rate', default=0.00001, type=float, metavar='LR', help='initial learning rate')
-parser.add_argument('-e', '--epochs', default=10, type=int, metavar='N', help='number of total epochs to run')
+parser.add_argument('-e', '--epochs', default=20, type=int, metavar='N', help='number of total epochs to run')
 parser.add_argument('-j', '--num_workers', default=4, type=int, metavar='N', help='number of data loading workers (default: 4)')
 parser.add_argument('--weight-decay', '-wd', default=5e-4, type=float, metavar='W', help='weight decay (default: 1e-4)')
 parser.add_argument('--optimizer-eps', default=1e-8, type=float)
