@@ -236,34 +236,37 @@ def main(conf):
             checkpoint = {
                 'epoch': epoch,
                 'val_loss': val_loss,
+                'val_performance': val_performance,
                 'state_dict': net.state_dict(),
                 'optimizer': optimizer.state_dict(),
             }
-            torch.save(checkpoint, os.path.join(conf['outdir'], 'epoch' + str(epoch) + '_best_val_loss.pth'))
+            torch.save(checkpoint, os.path.join(conf['outdir'], 'best_val_loss.pth'))
             best_val_loss = val_loss
-            epoch_from_last_improvement = 0
-        else:
-            epoch_from_last_improvement += 1
 
         if val_performance >= best_performance:
             checkpoint = {
                 'epoch': epoch,
                 'val_loss': val_loss,
+                'val_performance': val_performance,
                 'state_dict': net.state_dict(),
                 'optimizer': optimizer.state_dict(),
             }
-            torch.save(checkpoint, os.path.join(conf['outdir'], 'epoch' + str(epoch) + '_best_val_perform.pth'))
+            torch.save(checkpoint, os.path.join(conf['outdir'], 'best_val_perform.pth'))
             best_performance = val_performance
+            epoch_from_last_improvement = 0
+        else:
+            epoch_from_last_improvement += 1
 
         checkpoint = {
             'epoch': epoch,
             'state_dict': net.state_dict(),
             'optimizer': optimizer.state_dict(),
         }
-        torch.save(checkpoint, os.path.join(conf['outdir'], 'cur_model_fold' + str(conf.fold) + '.pth'))
+        torch.save(checkpoint, os.path.join(conf['outdir'], 'cur_model.pth'))
 
-        if epoch_from_last_improvement >= 4:
-            break # Early Stopping
+        if epoch_from_last_improvement >= 5:
+            print('No improvement for ' + str(epoch_from_last_improvement) + ' epoches')
+            #break # Early Stopping
 
 if __name__=="__main__":
     conf = get_config()

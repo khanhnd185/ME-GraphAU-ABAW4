@@ -25,28 +25,30 @@ class LinearBlock(nn.Module):
         x = self.relu(self.bn(x)).permute(0, 2, 1)
         return x
 
-class SigmoidDense(nn.Module):
+class HeaderEX(nn.Module):
     def __init__(self, D_in, D_out, drop=0.0):
-        super(SigmoidDense,self).__init__()
+        super(HeaderEX,self).__init__()
         self.linear1=nn.Linear(D_in, D_out)
         #self.linear2=nn.Linear(H,D_out)
         self.drop = nn.Dropout(drop)
         
     def forward(self,x):
         x = self.drop(x)
-        x=torch.sigmoid(self.linear1(x))  
+        x = self.linear1(x)
+        x = torch.sigmoid(x)  
         #x=self.linear2(x)
         return x
 
-class TanhDense(nn.Module):
+class HeaderVA(nn.Module):
     def __init__(self, D_in, D_out, drop=0.0):
-        super(TanhDense,self).__init__()
+        super(HeaderVA,self).__init__()
         self.linear1=nn.Linear(D_in, D_out)
         #self.linear2=nn.Linear(H,D_out)
         self.drop = nn.Dropout(drop)
         
     def forward(self,x):
         x = self.drop(x)
-        x=torch.tanh(self.linear1(x))  
+        x = self.linear1(x)
+        # x = torch.tanh(x)  
         #x=self.linear2(x)
         return x
