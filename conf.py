@@ -26,7 +26,7 @@ parser.add_argument('-j', '--num_workers', default=4, type=int, metavar='N', hel
 parser.add_argument('--weight-decay', '-wd', default=5e-4, type=float, metavar='W', help='weight decay (default: 1e-4)')
 parser.add_argument('--optimizer-eps', default=1e-8, type=float)
 parser.add_argument('--crop-size', default=224, type=int, help="crop size of train/test image data")
-parser.add_argument('--early-stop', dest='early_stop', action='store_true', help='Apply early stopping')
+parser.add_argument('--early-stop', type=int, help="Number of epoch since last improvement to apply early stop")
 parser.add_argument('--evaluate', action='store_true', help='evaluation mode')
 
 # Network and Loss
