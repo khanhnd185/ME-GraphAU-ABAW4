@@ -242,6 +242,24 @@ def main(conf):
                         val_performance)}
         logging.info(infostr)
 
+        infostr = {'EpochNo: {},{:.5f},{:.5f},{:.5f},{:.5f},{:.5f},{:.5f},{:.5f},{:.5f},{:.5f},{:.5f},{:.2f},{:.2f},{:.2f},{:.2f}'
+                .format(epoch,
+                        lr,
+                        train_loss,
+                        train_va_loss,
+                        train_ex_loss,
+                        train_au_loss,
+                        edge_loss,
+                        val_loss,
+                        val_va_loss,
+                        val_ex_loss,
+                        val_au_loss,
+                        val_va_metrics,
+                        val_ex_metrics,
+                        val_au_metrics,
+                        val_performance)}
+        logging.info(infostr)
+
         if val_loss <= best_val_loss:
             checkpoint = {
                 'epoch': epoch,
