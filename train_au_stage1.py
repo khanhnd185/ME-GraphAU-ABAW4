@@ -264,9 +264,9 @@ def main(conf):
         }
         torch.save(checkpoint, os.path.join(conf['outdir'], 'cur_model.pth'))
 
-        if epoch_from_last_improvement >= 5:
-            print('No improvement for ' + str(epoch_from_last_improvement) + ' epoches')
-            #break # Early Stopping
+        if epoch_from_last_improvement >= 5 and conf.early_stop:
+            print('No improvement for ' + str(epoch_from_last_improvement) + ' epoches. Stop training')
+            break
 
 if __name__=="__main__":
     conf = get_config()
