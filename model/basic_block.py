@@ -26,7 +26,7 @@ class LinearBlock(nn.Module):
         return x
 
 class SimpleDense(nn.Module):
-    def __init__(self, D_in, D_out, drop=0):
+    def __init__(self, D_in, D_out, drop=0.0):
         super(SimpleDense,self).__init__()
         self.linear1=nn.Linear(D_in, D_out)
         #self.linear2=nn.Linear(H,D_out)
